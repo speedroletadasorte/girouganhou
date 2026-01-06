@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roleta da Sorte - Final de Corrida</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+            overflow: hidden;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 30px;
+            background: #ff4757;
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 20;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .center-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            border: 4px solid #f1f2f6;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+            transition: transform 0.2s;
+        }
+
+        .center-button:active {
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            z-index: 100;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(360deg); }
+        }
+
+        /* Efeito de carregamento */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin-loader 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin-loader {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-6 sm:p-8 text-center">
+        <header id="mainHeader" class="mb-8">
+            <h1 class="text-2xl font-bold text-gray-800">Parabéns pela Corrida! 🚗</h1>
+            <p class="text-gray-500 text-sm mt-2">Gire a roleta e ganhe um presente especial.</p>
+        </header>
+
+        <div id="gameSection">
+            <div class="wheel-container mb-8">
+                <div class="pointer"></div>
+                <div class="center-button" id="spinBtn">GIRAR</div>
+                <canvas id="wheel"></canvas>
+            </div>
+        </div>
+
+        <!-- Mensagem de resultado na tela principal -->
+        <div id="resultMessage" class="hidden animate-pulse mt-4 p-4 bg-indigo-50 rounded-xl text-indigo-700 font-bold border border-indigo-100">
+        </div>
+
+        <!-- Botão de Ação -->
+        <div id="actionContainer" class="hidden mt-6">
+            <button id="redeemBtn" onclick="redeemPrize()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center">
+                RESGATAR MEU PRÊMIO
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Vitória -->
+    <div id="rewardModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-6">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center relative shadow-2xl">
+            <h2 class="text-3xl font-extrabold text-indigo-600 mb-2">VOCÊ GANHOU! 🎉</h2>
+            <p class="text-gray-600 mb-6">Prêmio conquistado:</p>
+            <div id="prizeValue" class="text-3xl font-black text-gray-800 mb-6 bg-yellow-100 py-4 rounded-2xl border-2 border-dashed border-yellow-400">
+                <!-- Valor do prêmio -->
+            </div>
+            <p class="text-xs text-gray-400 mb-6">Clique no botão abaixo para validar seu prêmio.</p>
+            <button onclick="closeModal()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 transition">
+                CONTINUAR
+            </button>
+        </div>
+    </div>
+
+    <!-- Mensagem de Sucesso Final -->
+    <div id="successOverlay" class="hidden fixed inset-0 bg-green-500 flex flex-col items-center justify-center z-[60] text-white p-8 text-center">
+        <div class="bg-white text-green-500 p-4 rounded-full mb-6 shadow-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <h2 class="text-4xl font-black mb-4">ENVIADO!</h2>
+        <p class="text-xl opacity-90 mb-8" id="finalConfirmationText"></p>
+        <div class="bg-green-600 p-4 rounded-xl mb-8">
+            <p class="text-xs uppercase font-bold opacity-75 mb-1">Código de Resgate:</p>
+            <p class="text-2xl font-mono font-bold tracking-widest" id="voucherCode"></p>
+        </div>
+        <button onclick="location.reload()" class="bg-white text-green-600 px-8 py-3 rounded-full font-bold shadow-lg">
+            VOLTAR AO INÍCIO
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultMsg = document.getElementById('resultMessage');
+        const actionContainer = document.getElementById('actionContainer');
+        const rewardModal = document.getElementById('rewardModal');
+        const prizeValueDisplay = document.getElementById('prizeValue');
+        const redeemBtn = document.getElementById('redeemBtn');
+        const successOverlay = document.getElementById('successOverlay');
+        const voucherDisplay = document.getElementById('voucherCode');
+        const finalConfirmationText = document.getElementById('finalConfirmationText');
+
+        let currentPrize = null;
+        let isSpinning = false;
+
+        const prizes = [
+            { label: '5% OFF', color: '#FF6B6B', value: '5% de Desconto' },
+            { label: 'R$ 2,00', color: '#4D96FF', value: 'R$ 2,00 de Crédito' },
+            { label: '10% OFF', color: '#6BCB77', value: '10% de Desconto' },
+            { label: 'BALA', color: '#FFD93D', value: 'Bala Grátis na Próxima' },
+            { label: 'R$ 5,00', color: '#92A9BD', value: 'R$ 5,00 de Crédito' },
+            { label: 'BRINDE', color: '#6c5ce7', value: 'Um Brinde Surpresa' },
+            { label: 'ÁGUA', color: '#fab1a0', value: 'Uma Água Cortesia' },
+            { label: '8% OFF', color: '#00d2d3', value: '8% de Desconto' }
+        ];
+
+        const size = prizes.length;
+        const arc = 2 * Math.PI / size;
+
+        function drawWheel() {
+            canvas.width = 300;
+            canvas.height = 300;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2;
+
+            prizes.forEach((prize, i) => {
+                const angle = i * arc;
+                ctx.beginPath();
+                ctx.fillStyle = prize.color;
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + arc, false);
+                ctx.lineTo(centerX, centerY);
+                ctx.fill();
+
+                ctx.save();
+                ctx.fillStyle = "white";
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "right";
+                ctx.font = "bold 14px Poppins";
+                ctx.fillText(prize.label, radius - 15, 6);
+                ctx.restore();
+            });
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            
+            spinBtn.innerText = "SORTE...";
+            spinBtn.style.opacity = "0.5";
+
+            const randomRotation = Math.floor(Math.random() * 360) + 2880; // 8 voltas + aleatório
+            canvas.style.transform = `rotate(${randomRotation}deg)`;
+
+            setTimeout(() => {
+                isSpinning = false;
+                const actualRotation = randomRotation % 360;
+                const segmentDegrees = 360 / size;
+                const winningIndex = Math.floor(((360 - actualRotation + 270) % 360) / segmentDegrees);
+                currentPrize = prizes[winningIndex];
+
+                showWinner();
+            }, 4000);
+        }
+
+        function showWinner() {
+            prizeValueDisplay.innerText = currentPrize.value;
+            rewardModal.classList.remove('hidden');
+            createConfetti();
+            
+            resultMsg.innerHTML = `VOCÊ GANHOU: <br> <span class="text-2xl">${currentPrize.value}</span>`;
+            resultMsg.classList.remove('hidden');
+            actionContainer.classList.remove('hidden');
+            spinBtn.innerText = "FIM";
+            spinBtn.style.cursor = 'default';
+        }
+
+        function closeModal() {
+            rewardModal.classList.add('hidden');
+        }
+
+        function redeemPrize() {
+            // Simula o envio
+            redeemBtn.disabled = true;
+            redeemBtn.innerHTML = `<span class="loader"></span> ENVIANDO PRÊMIO...`;
+            
+            const fakeCode = "VOUCHER-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+
+            // Simula um atraso de rede
+            setTimeout(() => {
+                voucherDisplay.innerText = fakeCode;
+                finalConfirmationText.innerText = `O prêmio "${currentPrize.value}" foi vinculado ao seu cadastro com sucesso!`;
+                successOverlay.classList.remove('hidden');
+            }, 1500);
+        }
+
+        function createConfetti() {
+            for (let i = 0; i < 60; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.backgroundColor = prizes[Math.floor(Math.random() * size)].color;
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 5000);
+            }
+        }
+
+        spinBtn.addEventListener('click', () => {
+            if (!isSpinning && spinBtn.innerText === "GIRAR") {
+                spin();
+            }
+        });
+
+        drawWheel();
+    </script>
+</body>
+</html>
